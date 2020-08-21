@@ -8,6 +8,7 @@ import com.google.api.client.testing.http.MockLowLevelHttpRequest;
 import com.google.api.client.testing.http.MockLowLevelHttpResponse;
 import com.google.api.client.testing.http.MockHttpTransport;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import se.thinkware.gocd.dockerpoller.message.CheckConnectionResultMessage;
 import se.thinkware.gocd.dockerpoller.message.PackageMaterialProperties;
@@ -178,6 +179,7 @@ class PackageRepositoryPollerTests {
     }
 
     @Test
+    @DisplayName("Test fetching docker tags")
     void PackageFoundTest() {
 
         PackageRepositoryPoller poller = new PackageRepositoryPoller(
@@ -204,7 +206,8 @@ class PackageRepositoryPollerTests {
     }
 
     @Test
-    void TagFetcherTest() {
+    @DisplayName("Test fetching docker tags")
+    void fetchTagsTest() {
 
         PackageRepositoryPoller poller = new PackageRepositoryPoller(
                 new PackageRepositoryConfigurationProvider(),
@@ -213,7 +216,7 @@ class PackageRepositoryPollerTests {
 
         GenericUrl url = new GenericUrl("http://xxx/v2/my_docker/tags/list");
 
-        List<String> tags = poller.TagFetcher(url);
+        List<String> tags = poller.fetchTags(url);
 
         List<String> expected = Arrays.asList("1.1", "1.11", "1.100", "1.2", "1.3");
         assertEquals(expected, tags);

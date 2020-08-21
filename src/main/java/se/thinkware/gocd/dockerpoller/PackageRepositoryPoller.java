@@ -7,7 +7,6 @@ import com.google.api.client.http.HttpResponseException;
 import com.google.api.client.http.HttpRequest;
 import com.google.api.client.http.HttpHeaders;
 import com.google.api.client.http.javanet.NetHttpTransport;
-import com.google.api.client.json.gson.GsonFactory;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import com.thoughtworks.go.plugin.api.logging.Logger;
@@ -30,9 +29,9 @@ import static se.thinkware.gocd.dockerpoller.JsonUtil.fromJsonString;
 
 class PackageRepositoryPoller {
 
-    private static Logger LOGGER = Logger.getLoggerFor(PackageRepositoryPoller.class);
+    private static final Logger logger = Logger.getLoggerFor(PackageRepositoryPoller.class);
 
-    private PackageRepositoryConfigurationProvider configurationProvider;
+    private final PackageRepositoryConfigurationProvider configurationProvider;
 
     private final HttpTransport transport;
 
@@ -56,14 +55,14 @@ class PackageRepositoryPoller {
         request.setThrowExceptionOnExecuteError(false);
         HttpResponse response = request.execute();
 
-        LOGGER.info(String.format("HTTP GET URL: %s %s", url.toString(), response.getStatusCode()));
+        logger.debug(String.format("HTTP GET URL: %s %s", url.toString(), response.getStatusCode()));
         if (response.isSuccessStatusCode()) {
             return response;
         } 
 
         if (response.getStatusCode() == 401) {
             String authenticate = response.getHeaders().getAuthenticate();
-            LOGGER.info(String.format("WWW-Authenticate: %s", authenticate));
+            logger.debug(String.format("WWW-Authenticate: %s", authenticate));
             if (authenticate != null) {
                 Matcher matcher = Pattern
                      .compile("realm=\"([^\"]+)\"", Pattern.CASE_INSENSITIVE)
@@ -71,7 +70,7 @@ class PackageRepositoryPoller {
                 
                 matcher.find();                
                 String tokenUrl = matcher.group(1);
-                LOGGER.info(String.format("Token URL: %s", tokenUrl));
+                logger.debug(String.format("Token URL: %s", tokenUrl));
 
                 String tokenResponse = transport
                     .createRequestFactory()
@@ -97,8 +96,8 @@ class PackageRepositoryPoller {
     	throw new HttpResponseException(response);
     }
 
-    private CheckConnectionResultMessage UrlChecker(GenericUrl url, String what) {
-        LOGGER.info(String.format("Checking URL: %s", url.toString()));
+    private CheckConnectionResultMessage checkUrl(GenericUrl url, String what) {
+        logger.debug(String.format("Checking URL: %s", url.toString()));
         try {
             HttpResponse response = getUrl(url);
             HttpHeaders headers = response.getHeaders();
@@ -109,40 +108,40 @@ class PackageRepositoryPoller {
                 if (headers.get(dockerHeader).toString().startsWith("[registry/2.")) {
                     status = CheckConnectionResultMessage.STATUS.SUCCESS;
                     message = "Docker " + what + " found.";
-                    LOGGER.info(message);
+                    logger.debug(message);
                 } else {
                     status = CheckConnectionResultMessage.STATUS.FAILURE;
                     message = "Unknown value " + headers.get(dockerHeader).toString() + " for header " + dockerHeader;
-                    LOGGER.warn(message);
+                    logger.warn(message);
                 }
             } else {
                 status = CheckConnectionResultMessage.STATUS.FAILURE;
                 message = "Missing header: " + dockerHeader + " found only: " + headers.keySet();
-                LOGGER.warn(message);
+                logger.warn(message);
             }
             return new CheckConnectionResultMessage(status, Collections.singletonList(message));
         } catch (IOException ex) {
             String error = "Could not find docker " + what + ". [" + ex.getMessage() + "]";
-            LOGGER.warn(error);
+            logger.warn(error);
             return new CheckConnectionResultMessage(
                     CheckConnectionResultMessage.STATUS.FAILURE,
                     Collections.singletonList(error));
         } catch (Exception ex) {
-            LOGGER.warn("Caught unexpected exception");
-            LOGGER.warn(ex.toString());
+            logger.warn("Caught unexpected exception");
+            logger.warn(ex.toString());
             throw ex;
         }
     }
 
-    List<String> TagFetcher(GenericUrl url) {
+    List<String> fetchTags(GenericUrl url) {
         try {
-            LOGGER.info(String.format("Fetch tags for %s", url.toString()));
+            logger.debug(String.format("Fetch tags for %s", url.toString()));
             String tagResponse = getUrl(url).parseAsString();          
             DockerTagsList tagsList = fromJsonString(tagResponse, DockerTagsList.class);
-            LOGGER.info(String.format("Got tags: %s", tagsList.getTags().toString()));
+            logger.debug(String.format("Got tags: %s", tagsList.getTags().toString()));
             return tagsList.getTags();
         } catch (IOException ex) {
-            LOGGER.warn("Got no tags!");
+            logger.warn("Got no tags!");
             return Collections.emptyList();
         }
     }
@@ -156,7 +155,7 @@ class PackageRepositoryPoller {
             return new CheckConnectionResultMessage(CheckConnectionResultMessage.STATUS.FAILURE, validationResultMessage.getMessages());
         }
         String dockerRegistryUrl = repositoryConfiguration.getProperty(Constants.DOCKER_REGISTRY_URL).value();
-        return UrlChecker(new GenericUrl(dockerRegistryUrl), "registry");
+        return checkUrl(new GenericUrl(dockerRegistryUrl), "registry");
     }
 
     public CheckConnectionResultMessage checkConnectionToPackage(
@@ -165,7 +164,7 @@ class PackageRepositoryPoller {
     ) {
         String dockerPackageUrl =
                 getDockerPackageUrl(packageConfiguration, repositoryConfiguration);
-        return UrlChecker(new GenericUrl(dockerPackageUrl), "image");
+        return checkUrl(new GenericUrl(dockerPackageUrl), "image");
     }
 
     private String getDockerPackageUrl(
@@ -204,9 +203,9 @@ class PackageRepositoryPoller {
             PackageMaterialProperties packageConfiguration,
             PackageMaterialProperties repositoryConfiguration
     ) {
-        LOGGER.info("getLatestRevision");
+        logger.debug("getLatestRevision");
         GenericUrl url = new GenericUrl(getDockerPackageUrl(packageConfiguration, repositoryConfiguration));
-        List<String> tags = TagFetcher(url);
+        List<String> tags = fetchTags(url);
         String filter = packageConfiguration.getProperty(Constants.DOCKER_TAG_FILTER).value();
         if (filter.equals("")) {
             filter = ".*";
@@ -218,7 +217,7 @@ class PackageRepositoryPoller {
             List<Object> matching = tags.stream().filter(pattern.asPredicate()).collect(Collectors.toList());
 
             if (matching.isEmpty()) {
-                LOGGER.info("Found no matching revision.");
+                logger.warn("Found no matching revision.");
                 return new PackageRevisionMessage();
             }
 
@@ -227,12 +226,12 @@ class PackageRepositoryPoller {
                 latest = biggest(latest, tag.toString());
             }
 
-            LOGGER.info(String.format("Latest revision is: %s", latest));
+            logger.info(String.format("Latest revision is: %s", latest));
             return new PackageRevisionMessage(latest, new Date(), "docker", null,null);
 
         } catch (PatternSyntaxException e) {
             String message = String.format("Invalid docker tag filter '%s' used for image '%s': %s", filter, url, e.getMessage());
-            LOGGER.error(message);
+            logger.error(message);
             throw new PatternSyntaxException(message, e.getPattern(), e.getIndex());
         }
     }
@@ -242,13 +241,13 @@ class PackageRepositoryPoller {
             PackageMaterialProperties repositoryConfiguration,
             PackageRevisionMessage previous
     ) {
-        LOGGER.info(String.format("getLatestRevisionSince %s", previous.getRevision()));
+        logger.debug(String.format("getLatestRevisionSince %s", previous.getRevision()));
         PackageRevisionMessage latest = getLatestRevision(packageConfiguration, repositoryConfiguration);
         if (biggest(previous.getRevision(), latest.getRevision()).equals(latest.getRevision())) {
-            LOGGER.info(String.format("Latest revision is: %s", latest));
+            logger.info(String.format("Latest revision is: %s", latest));
             return latest;
         } else {
-            LOGGER.info("Found no matching revision.");
+            logger.warn("Found no matching revision.");
             return new PackageRevisionMessage();
         }
     }
