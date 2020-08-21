@@ -37,7 +37,7 @@ class PackageRepositoryPoller {
     private final HttpTransport transport;
 
     public PackageRepositoryPoller(PackageRepositoryConfigurationProvider configurationProvider) {
-        LOGGER.info("Instatiated PackageRepositoryPoller");
+        logger.debug("Instantiated PackageRepositoryPoller");
         this.configurationProvider = configurationProvider;
         this.transport = new NetHttpTransport();
     }
