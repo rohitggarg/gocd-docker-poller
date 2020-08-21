@@ -36,16 +36,15 @@ public class PackageRepositoryMaterial extends AbstractGoPlugin {
     public PackageRepositoryMaterial() {
         configurationProvider = new PackageRepositoryConfigurationProvider();
         packageRepositoryPoller = new PackageRepositoryPoller(configurationProvider);
-        handlerMap.put(REQUEST_REPOSITORY_CONFIGURATION, repositoryConfigurationsMessageHandler());
-        handlerMap.put(REQUEST_PACKAGE_CONFIGURATION, packageConfigurationMessageHandler());
-        handlerMap.put(REQUEST_VALIDATE_REPOSITORY_CONFIGURATION, validateRepositoryConfigurationMessageHandler());
-        handlerMap.put(REQUEST_VALIDATE_PACKAGE_CONFIGURATION, validatePackageConfigurationMessageHandler());
-        handlerMap.put(REQUEST_CHECK_REPOSITORY_CONNECTION, checkRepositoryConnectionMessageHandler());
-        handlerMap.put(REQUEST_CHECK_PACKAGE_CONNECTION, checkPackageConnectionMessageHandler());
-        handlerMap.put(REQUEST_LATEST_PACKAGE_REVISION, latestRevisionMessageHandler());
-        handlerMap.put(REQUEST_LATEST_PACKAGE_REVISION_SINCE, latestRevisionSinceMessageHandler());
+        handlerMap.put(REQUEST_REPOSITORY_CONFIGURATION, this::handleRepositoryConfigurationsMessage);
+        handlerMap.put(REQUEST_PACKAGE_CONFIGURATION, this::handlePackageConfigurationMessage);
+        handlerMap.put(REQUEST_VALIDATE_REPOSITORY_CONFIGURATION, this::handleValidateRepositoryConfigurationMessage);
+        handlerMap.put(REQUEST_VALIDATE_PACKAGE_CONFIGURATION, this::handleValidatePackageConfigurationMessage);
+        handlerMap.put(REQUEST_CHECK_REPOSITORY_CONNECTION, this::handleCheckRepositoryConnectionMessage);
+        handlerMap.put(REQUEST_CHECK_PACKAGE_CONNECTION, this::handleCheckPackageConnectionMessage);
+        handlerMap.put(REQUEST_LATEST_PACKAGE_REVISION, this::handleLatestRevisionMessage);
+        handlerMap.put(REQUEST_LATEST_PACKAGE_REVISION_SINCE, this::handleLatestRevisionSinceMessage);
     }
-
 
     @Override
     public GoPluginApiResponse handle(GoPluginApiRequest goPluginApiRequest) {
@@ -64,96 +63,56 @@ public class PackageRepositoryMaterial extends AbstractGoPlugin {
         return new GoPluginIdentifier(EXTENSION, Collections.singletonList("1.0"));
     }
 
-    MessageHandler packageConfigurationMessageHandler() {
-        return new MessageHandler() {
-            @Override
-            public GoPluginApiResponse handle(GoPluginApiRequest request) {
-                return success(toJsonString(configurationProvider.packageConfiguration().getPropertyMap()));
-            }
-        };
-
+    GoPluginApiResponse handlePackageConfigurationMessage(GoPluginApiRequest request) {
+        return success(toJsonString(configurationProvider.packageConfiguration().getPropertyMap()));
     }
 
-    MessageHandler repositoryConfigurationsMessageHandler() {
-        return new MessageHandler() {
-            @Override
-            public GoPluginApiResponse handle(GoPluginApiRequest request) {
-                return success(toJsonString(configurationProvider.repositoryConfiguration().getPropertyMap()));
-            }
-        };
+
+    public GoPluginApiResponse handleRepositoryConfigurationsMessage(GoPluginApiRequest request) {
+        return success(toJsonString(configurationProvider.repositoryConfiguration().getPropertyMap()));
     }
 
-    MessageHandler validateRepositoryConfigurationMessageHandler() {
-        return new MessageHandler() {
-            @Override
-            public GoPluginApiResponse handle(GoPluginApiRequest request) {
 
-                ValidateRepositoryConfigurationMessage message = fromJsonString(request.requestBody(), ValidateRepositoryConfigurationMessage.class);
-                ValidationResultMessage validationResultMessage = configurationProvider.validateRepositoryConfiguration(message.getRepositoryConfiguration());
-                if (validationResultMessage.failure()) {
-                    return success(toJsonString(validationResultMessage.getValidationErrors()));
-                }
-                return success("");
-            }
-        };
+    public GoPluginApiResponse handleValidateRepositoryConfigurationMessage(GoPluginApiRequest request) {
+
+        ValidateRepositoryConfigurationMessage message = fromJsonString(request.requestBody(), ValidateRepositoryConfigurationMessage.class);
+        ValidationResultMessage validationResultMessage = configurationProvider.validateRepositoryConfiguration(message.getRepositoryConfiguration());
+        if (validationResultMessage.failure()) {
+            return success(toJsonString(validationResultMessage.getValidationErrors()));
+        }
+        return success("");
     }
 
-    MessageHandler validatePackageConfigurationMessageHandler() {
-        return new MessageHandler() {
-            @Override
-            public GoPluginApiResponse handle(GoPluginApiRequest request) {
-                ValidatePackageConfigurationMessage message = fromJsonString(request.requestBody(), ValidatePackageConfigurationMessage.class);
-                ValidationResultMessage validationResultMessage = configurationProvider.validatePackageConfiguration(message.getPackageConfiguration());
-                if (validationResultMessage.failure()) {
-                    return success(toJsonString(validationResultMessage.getValidationErrors()));
-                }
-                return success("");
-            }
-        };
+    private GoPluginApiResponse handleValidatePackageConfigurationMessage(GoPluginApiRequest request) {
+        ValidatePackageConfigurationMessage message = fromJsonString(request.requestBody(), ValidatePackageConfigurationMessage.class);
+        ValidationResultMessage validationResultMessage = configurationProvider.validatePackageConfiguration(message.getPackageConfiguration());
+        if (validationResultMessage.failure()) {
+            return success(toJsonString(validationResultMessage.getValidationErrors()));
+        }
+        return success("");
     }
 
-    MessageHandler checkRepositoryConnectionMessageHandler() {
-        return new MessageHandler() {
-            @Override
-            public GoPluginApiResponse handle(GoPluginApiRequest request) {
-                RepositoryConnectionMessage message = fromJsonString(request.requestBody(), RepositoryConnectionMessage.class);
-                CheckConnectionResultMessage result = packageRepositoryPoller.checkConnectionToRepository(message.getRepositoryConfiguration());
-                return success(toJsonString(result));
-            }
-        };
+    public GoPluginApiResponse handleCheckRepositoryConnectionMessage(GoPluginApiRequest request) {
+        RepositoryConnectionMessage message = fromJsonString(request.requestBody(), RepositoryConnectionMessage.class);
+        CheckConnectionResultMessage result = packageRepositoryPoller.checkConnectionToRepository(message.getRepositoryConfiguration());
+        return success(toJsonString(result));
     }
 
-    MessageHandler checkPackageConnectionMessageHandler() {
-        return new MessageHandler() {
-            @Override
-            public GoPluginApiResponse handle(GoPluginApiRequest request) {
-                PackageConnectionMessage message = fromJsonString(request.requestBody(), PackageConnectionMessage.class);
-                CheckConnectionResultMessage result = packageRepositoryPoller.checkConnectionToPackage(message.getPackageConfiguration(), message.getRepositoryConfiguration());
-                return success(toJsonString(result));
-            }
-        };
+    private GoPluginApiResponse handleCheckPackageConnectionMessage(GoPluginApiRequest request) {
+        PackageConnectionMessage message = fromJsonString(request.requestBody(), PackageConnectionMessage.class);
+        CheckConnectionResultMessage result = packageRepositoryPoller.checkConnectionToPackage(message.getPackageConfiguration(), message.getRepositoryConfiguration());
+        return success(toJsonString(result));
     }
 
-    MessageHandler latestRevisionMessageHandler() {
-        return new MessageHandler() {
-            @Override
-            public GoPluginApiResponse handle(GoPluginApiRequest request) {
-                LatestPackageRevisionMessage message = fromJsonString(request.requestBody(), LatestPackageRevisionMessage.class);
-                PackageRevisionMessage revision = packageRepositoryPoller.getLatestRevision(message.getPackageConfiguration(), message.getRepositoryConfiguration());
-                return success(toJsonString(revision));
-            }
-        };
+    public GoPluginApiResponse handleLatestRevisionMessage(GoPluginApiRequest request) {
+        LatestPackageRevisionMessage message = fromJsonString(request.requestBody(), LatestPackageRevisionMessage.class);
+        PackageRevisionMessage revision = packageRepositoryPoller.getLatestRevision(message.getPackageConfiguration(), message.getRepositoryConfiguration());
+        return success(toJsonString(revision));
     }
 
-    MessageHandler latestRevisionSinceMessageHandler() {
-        return new MessageHandler() {
-            @Override
-            public GoPluginApiResponse handle(GoPluginApiRequest request) {
-                LatestPackageRevisionSinceMessage message = fromJsonString(request.requestBody(), LatestPackageRevisionSinceMessage.class);
-                PackageRevisionMessage revision = packageRepositoryPoller.getLatestRevisionSince(message.getPackageConfiguration(), message.getRepositoryConfiguration(), message.getPreviousRevision());
-                return success(revision == null ? null : toJsonString(revision));
-            }
-        };
+    public GoPluginApiResponse handleLatestRevisionSinceMessage(GoPluginApiRequest request) {
+        LatestPackageRevisionSinceMessage message = fromJsonString(request.requestBody(), LatestPackageRevisionSinceMessage.class);
+        PackageRevisionMessage revision = packageRepositoryPoller.getLatestRevisionSince(message.getPackageConfiguration(), message.getRepositoryConfiguration(), message.getPreviousRevision());
+        return success(revision == null ? null : toJsonString(revision));
     }
-
 }
