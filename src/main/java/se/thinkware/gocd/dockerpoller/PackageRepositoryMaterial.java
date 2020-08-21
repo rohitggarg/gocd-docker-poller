@@ -53,8 +53,9 @@ public class PackageRepositoryMaterial extends AbstractGoPlugin {
                 return handlerMap.get(goPluginApiRequest.requestName()).handle(goPluginApiRequest);
             }
             return DefaultGoPluginApiResponse.badRequest(String.format("Invalid request name %s", goPluginApiRequest.requestName()));
-        } catch (Throwable e) {
-            return DefaultGoPluginApiResponse.error(e.getMessage());
+        } catch (Exception e) {
+            String message = e.getMessage();
+            return DefaultGoPluginApiResponse.error(message == null ? String.format("Encountered error of type %s without message.", e.getClass()) : e.getMessage());
         }
     }
 
