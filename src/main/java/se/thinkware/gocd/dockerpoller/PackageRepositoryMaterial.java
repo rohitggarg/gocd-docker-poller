@@ -29,8 +29,8 @@ public class PackageRepositoryMaterial extends AbstractGoPlugin {
     public static final String REQUEST_LATEST_PACKAGE_REVISION = "latest-revision";
     public static final String REQUEST_LATEST_PACKAGE_REVISION_SINCE = "latest-revision-since";
 
-    private Map<String, MessageHandler> handlerMap = new LinkedHashMap<>();
-    private PackageRepositoryConfigurationProvider configurationProvider;
+    private final Map<String, MessageHandler> handlerMap = new LinkedHashMap<>();
+    private final PackageRepositoryConfigurationProvider configurationProvider;
     private final PackageRepositoryPoller packageRepositoryPoller;
 
     public PackageRepositoryMaterial() {
