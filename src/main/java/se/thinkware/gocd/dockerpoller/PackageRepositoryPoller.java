@@ -64,12 +64,18 @@ class PackageRepositoryPoller {
             String authenticate = response.getHeaders().getAuthenticate();
             logger.debug(String.format("WWW-Authenticate: %s", authenticate));
             if (authenticate != null) {
-                Matcher matcher = Pattern
-                     .compile("realm=\"([^\"]+)\"", Pattern.CASE_INSENSITIVE)
-                     .matcher(authenticate);
+                String parts[] = authenticate.split(" ");
+                String authScheme = parts[0];
+                String tokenUrl = getParameterFromAuthenticate(parts[1], "realm");                
                 
-                matcher.find();                
-                String tokenUrl = matcher.group(1);
+                String service = getParameterFromAuthenticate(parts[1], "service");
+                if(service != null) {
+                    tokenUrl += ("?service="+service);
+                    String scope = getParameterFromAuthenticate(parts[1], "scope");
+                    if(scope != null) {
+                        tokenUrl += ("&scope="+scope);
+                    }
+                }
                 logger.debug(String.format("Token URL: %s", tokenUrl));
 
                 String tokenResponse = transport
@@ -85,7 +91,7 @@ class PackageRepositoryPoller {
 
                 request = transport.createRequestFactory(req -> 
                     req.getHeaders().setAuthorization(
-                        "Bearer " + tokenMap.get("token")
+                        authScheme + " " + tokenMap.get("token")
                     )
                 ).buildGetRequest(url);
 
@@ -94,6 +100,16 @@ class PackageRepositoryPoller {
         }
         
     	throw new HttpResponseException(response);
+    }
+
+    private String getParameterFromAuthenticate(String authenticatePart, String parameter) {
+        Matcher matcher = Pattern
+            .compile(parameter + "=\"([^\"]+)\"", Pattern.CASE_INSENSITIVE)
+            .matcher(authenticatePart);
+        if(matcher.find()) {
+            return matcher.group(1);
+        }
+        return null;
     }
 
     private CheckConnectionResultMessage checkUrl(GenericUrl url, String what) {
